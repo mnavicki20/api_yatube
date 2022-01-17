@@ -6,16 +6,17 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
-from api.views import PostViewSet
+from api.views import CommentViewSet, GroupViewSet, PostViewSet
 
 router = DefaultRouter()
 router.register('posts', PostViewSet)
+router.register('groups', GroupViewSet)
+router.register('posts/<int:post_id>/comments/', CommentViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api-token-auth/', views.obtain_auth_token),
+    path('api/v1/api-token-auth/', views.obtain_auth_token),
     path('api/v1/', include(router.urls), name='api-root')
-    # path('api/v1/posts/', post_list, name='post_list'),
 ]
 
 
