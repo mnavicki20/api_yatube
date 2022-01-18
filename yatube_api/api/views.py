@@ -13,10 +13,10 @@ def api_posts(request):
         serializer = PostSerializer(post, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     elif request.method == 'POST':
-        serializer = PostSerializer(post, data=request.data)
+        serializer = PostSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, statust=status.HTTP_201_CREATED)
+            serializer.save(author=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -51,21 +51,11 @@ def api_groups(request):
     return Response(serializer.data)
 
 
-@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@api_view(['GET'])
 def api_groups_detail(request, pk):
     group = Group.objects.get(id=pk)
-    if request.method == 'GET':
-        serializer = GroupSerializer(group)
-        return Response(serializer.data)
-    elif request.method == 'PUT' or request.method == 'PATCH':
-        serializer = GroupSerializer(group, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    elif request.method == 'DELETE':
-        group.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    serializer = GroupSerializer(group)
+    return Response(serializer.data)
 
 
 @api_view(['GET', 'POST'])
@@ -73,6 +63,7 @@ def api_comments(request, pk):
     if request.method == 'POST':
         serializer = CommentSerializer(data=request.data)
         if serializer.is_valid():
+            serializer.save(author=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     elif request.method == 'GET':
@@ -97,8 +88,10 @@ def api_comments_detail(request, post_id, pk):
             return Response(
                 serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response(
-                serializer.errors, status=status.HTTP_403_FORBIDDEN)
+            return Response(status=status.HTTP_403_FORBIDDEN)
     elif request.method == 'DELETE':
-        comment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        if request.user == comment.author:
+            comment.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response(status=status.HTTP_403_FORBIDDEN)
