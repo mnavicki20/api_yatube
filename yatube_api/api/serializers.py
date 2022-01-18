@@ -4,21 +4,15 @@ from posts.models import Comment, Group, Post
 
 
 class PostSerializer(serializers.ModelSerializer):
-    group = serializers.SlugRelatedField(
-        required=False,
-        queryset=Group.objects.all(),
-        slug_field='slug'
-    )
-
     class Meta:
         model = Post
-        fields = ('text', 'pub_date', 'author', 'image', 'group')
+        fields = ('id', 'text', 'author', 'image', 'group', 'pub_date')
 
 
 class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
-        fields = ('author', 'post', 'text', 'created')
+        fields = '__all__'
 
 
 class GroupSerializer(serializers.ModelSerializer):
