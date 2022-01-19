@@ -1,97 +1,41 @@
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import status
-
-from posts.models import Comment, Group, Post
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+from .permissions import IsAuthorOrReadOnly
+from posts.models import Group, Post
 from .serializers import CommentSerializer, GroupSerializer, PostSerializer
+from rest_framework.generics import get_object_or_404
 
 
-@api_view(['GET', 'POST'])
-def api_posts(request):
-    post = Post.objects.all()
-    if request.method == 'GET':
-        serializer = PostSerializer(post, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    elif request.method == 'POST':
-        serializer = PostSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(author=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class PostViewSet(viewsets.ModelViewSet):
+    serializer_class = PostSerializer
+    permission_classes = (IsAuthenticated, IsAuthorOrReadOnly,)
+
+    def get_queryset(self):
+        queryset = Post.objects.all()
+        group = self.request.query_params.get('group', None)
+        if group is not None:
+            queryset = queryset.filter(group=group)
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
 
 
-@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
-def api_posts_detail(request, pk):
-    post = Post.objects.get(id=pk)
-    if request.method == 'GET':
-        serializer = PostSerializer(post)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    elif request.method == 'PUT' or request.method == 'PATCH':
-        serializer = PostSerializer(post, data=request.data, partial=True)
-        if request.user == post.author:
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response(
-                serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-    elif request.method == 'DELETE':
-        if request.user == post.author:
-            post.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+class GroupViewSet(viewsets.ReadOnlyModelViewSet):
+    """Вьюсет для групп."""
+    queryset = Group.objects.all()
+    serializer_class = GroupSerializer
+    permission_classes = (IsAuthenticated, IsAuthorOrReadOnly,)
 
 
-@api_view(['GET'])
-def api_groups(request):
-    group = Group.objects.all()
-    serializer = GroupSerializer(group, many=True)
-    return Response(serializer.data)
+class CommentViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentSerializer
+    permission_classes = (IsAuthenticated, IsAuthorOrReadOnly,)
 
+    def perform_create(self, serializer):
+        post = get_object_or_404(Post, pk=self.kwargs.get('post_id'))
+        serializer.save(author=self.request.user, post=post)
 
-@api_view(['GET'])
-def api_groups_detail(request, pk):
-    group = Group.objects.get(id=pk)
-    serializer = GroupSerializer(group)
-    return Response(serializer.data)
-
-
-@api_view(['GET', 'POST'])
-def api_comments(request, pk):
-    if request.method == 'POST':
-        serializer = CommentSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(author=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    elif request.method == 'GET':
-        comments = Comment.objects.all()
-        serializer = CommentSerializer(comments, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
-def api_comments_detail(request, post_id, pk):
-    comment = Comment.objects.get(post_id=post_id, id=pk)
-    if request.method == 'GET':
-        serializer = CommentSerializer(comment)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    elif request.method == 'PUT' or request.method == 'PATCH':
-        serializer = CommentSerializer(
-            comment, data=request.data, partial=True)
-        if request.user == comment.author:
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response(
-                serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-    elif request.method == 'DELETE':
-        if request.user == comment.author:
-            comment.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+    def get_queryset(self):
+        post = get_object_or_404(Post, pk=self.kwargs.get("post_id"))
+        return post.comments.all()
