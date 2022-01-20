@@ -4,6 +4,8 @@ from .permissions import IsAuthorOrReadOnly
 from posts.models import Group, Post
 from .serializers import CommentSerializer, GroupSerializer, PostSerializer
 from rest_framework.generics import get_object_or_404
+from rest_framework.response import Response
+from rest_framework import status
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -19,6 +21,16 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+    def perform_update(self, serializer):
+        if serializer.instance.author != self.request.user:
+            raise Response(status=status.HTTP_403_FORBIDDEN)
+        super(PostViewSet, self).perform_update(serializer) 
+
+    def perform_destroy(self, serializer):
+        if serializer.instance.author != self.request.user:
+            raise Response(status=status.HTTP_403_FORBIDDEN)
+        super(PostViewSet, self).perform_destroy(serializer) 
 
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
